@@ -1,0 +1,361 @@
+/* =========================================================
+   Roomora AI — global styles
+   ========================================================= */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
+  margin: 0;
+  background: #f7f5f2;
+  color: #1a1a1a;
+  line-height: 1.5;
+}
+
+/* ---- Layout ---- */
+
+.app {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+h1 {
+  font-size: 2rem;
+  margin: 0 0 6px;
+  letter-spacing: -0.5px;
+}
+
+p.subtitle {
+  color: #555;
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+p.privacy-note {
+  font-size: 0.82rem;
+  color: #888;
+  margin: 0;
+}
+
+/* ---- Cards ---- */
+
+.card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+  margin-bottom: 20px;
+}
+
+.card h3 {
+  margin: 0 0 16px;
+  font-size: 1.1rem;
+}
+
+/* ---- Form ---- */
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+}
+
+input[type="file"],
+input[type="number"],
+select {
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  border: 1px solid #d0ccc7;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: #fff;
+  color: #1a1a1a;
+  appearance: auto;
+}
+
+input:focus,
+select:focus {
+  outline: 2px solid #1a1a1a;
+  outline-offset: 1px;
+}
+
+.field-hint {
+  font-size: 0.78rem;
+  color: #888;
+  margin: 0 0 14px;
+}
+
+/* ---- Buttons ---- */
+
+button.primary {
+  width: 100%;
+  padding: 13px;
+  background: #1a1a1a;
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-top: 4px;
+}
+
+button.primary:hover:not(:disabled) {
+  background: #333;
+}
+
+button.primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background: transparent;
+  border: 1.5px solid #1a1a1a;
+  color: #1a1a1a;
+  padding: 7px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.88rem;
+  transition: background 0.12s;
+}
+
+button.secondary:hover:not(:disabled) {
+  background: #f0ede9;
+}
+
+button.secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- Photo preview ---- */
+
+img.preview {
+  max-width: 100%;
+  max-height: 280px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  margin-bottom: 14px;
+  display: none;
+  object-fit: cover;
+}
+
+img.preview.show {
+  display: block;
+}
+
+/* ---- Feedback states ---- */
+
+.loading {
+  color: #666;
+  font-style: italic;
+  margin-top: 10px;
+  font-size: 0.9rem;
+}
+
+.error {
+  color: #b00020;
+  background: #fdecea;
+  border: 1px solid #f5c6c6;
+  padding: 12px 14px;
+  border-radius: 8px;
+  margin-top: 12px;
+  font-size: 0.9rem;
+}
+
+/* ---- Telegraph banner ---- */
+
+.telegraph-banner {
+  background: #fffbea;
+  border: 1px solid #f0d070;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  color: #7a5c00;
+}
+
+/* ---- Analysis meta row ---- */
+
+.meta-row {
+  display: flex;
+  gap: 24px;
+  font-size: 0.88rem;
+  color: #555;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+/* ---- Budget bar ---- */
+
+.budget-bar {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+
+.budget-bar.ok {
+  background: #edfbf1;
+  border: 1px solid #a3e6b5;
+}
+
+.budget-bar.over {
+  background: #fdecea;
+  border: 1px solid #f5c6c6;
+}
+
+.budget-status {
+  margin-left: auto;
+  font-weight: 600;
+}
+
+.alt-note {
+  font-size: 0.85rem;
+  color: #7a5c00;
+  background: #fffbea;
+  border: 1px solid #f0d070;
+  border-radius: 7px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+}
+
+/* ---- Plan table ---- */
+
+.plan-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.plan-table th {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 2px solid #eee;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #666;
+}
+
+.plan-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #f0ede9;
+  vertical-align: middle;
+}
+
+.plan-table tfoot td {
+  border-top: 2px solid #ddd;
+  border-bottom: none;
+  padding-top: 10px;
+}
+
+.receipt-cell {
+  font-size: 0.78rem;
+}
+
+.receipt-id {
+  font-family: monospace;
+  background: #f2f0ec;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.text-muted {
+  color: #aaa;
+}
+
+/* ---- Source badges ---- */
+
+.badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.badge-live {
+  background: #d4f5e2;
+  color: #0a5e2a;
+}
+
+.badge-estimate {
+  background: #e0eeff;
+  color: #1248a0;
+}
+
+.badge-mock {
+  background: #f0ede9;
+  color: #666;
+}
+
+/* ---- Receipts panel header ---- */
+
+.receipts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.receipts-header h3 {
+  margin: 0;
+}
+
+/* ---- Misc ---- */
+
+.note {
+  font-size: 0.82rem;
+  color: #888;
+  margin-top: 10px;
+}
+
+/* ---- Responsive ---- */
+
+@media (max-width: 540px) {
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  .plan-table th,
+  .plan-table td {
+    padding: 7px 6px;
+  }
+
+  .budget-bar {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .budget-status {
+    margin-left: 0;
+  }
+
+  .meta-row {
+    flex-direction: column;
+    gap: 4px;
+  }
+}

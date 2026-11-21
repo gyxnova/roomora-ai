@@ -1,0 +1,23 @@
+# Roomora AI — backend Python dependencies
+#
+# Install with:  pip install -r requirements.txt
+# (run from roomora-ai/ with .venv activated)
+
+# Web framework
+fastapi==0.115.6
+
+# ASGI server (run with: uvicorn backend.main:app --reload)
+uvicorn[standard]==0.32.1
+
+# FastAPI needs this to parse multipart/form-data (UploadFile, Form)
+python-multipart==0.0.20
+
+# ORM + SQLite
+sqlalchemy==2.0.36
+
+# .env file loading (used in config.py)
+python-dotenv==1.0.1
+
+# Testing
+pytest==9.1.1
+httpx==0.28.1

@@ -1,0 +1,48 @@
+# ---- Secrets (never commit these) ----
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+*.pyc
+
+# ---- Uploads (user photos — not committed) ----
+backend/uploads/
+
+# ---- Database (auto-created on first run) ----
+*.db
+*.sqlite
+*.sqlite3
+
+# ---- Node / frontend ----
+node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# ---- OS / editor artefacts ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ---- Claude Code internal ----
+.claude/
+CLAUDE.md
+PROJECT_BRIEF.md
+ROADMAP.md
