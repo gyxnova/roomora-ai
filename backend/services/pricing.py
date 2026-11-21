@@ -1,38 +1,39 @@
 """Pricing service for Roomora AI.
 
-Mock mode (Phase 1): returns prices from the local catalog with extra metadata
-fields that the plan and frontend consume.
+PRICING_MODE=mock (Phase 1):
+    Returns catalog estimates with price_source="mock" and zero cost_usd.
 
-Telegraph mode (Phase 2): fill in the branch guarded by MODE == "real" to call
-backend.telegraphprotocol.com and record a receipt_id + cost_usd.
+PRICING_MODE=telegraph (Phase 2):
+    Will POST to Telegraph, record a receipt in SQLite, and return the live
+    price.  Raises NotImplementedError("Phase 2") until that branch is built.
 
-Shape of every returned price dict (section 7):
+Shape of every returned price dict (section 7 rule 6):
     {
         "id":           str,
         "name":         str,
         "price_inr":    int,
-        "price_source": "mock" | "telegraph",
-        "receipt_id":   str | None,   # null until a real Telegraph receipt
-        "cost_usd":     float,         # 0 in mock mode
+        "price_source": "mock" | "telegraph_live" | "estimate_fallback",
+        "receipt_id":   int | None,   # telegraph_requests row id; None in mock
+        "cost_usd":     float,         # 0.0 in mock mode
         "cached":       bool,          # True when Telegraph returned a cache hit
     }
 """
-from config import MODE
+from config import PRICING_MODE
 from data.catalog import find_item
 
 
 def price_item(item_id: str) -> dict | None:
     """Return enriched pricing for a single catalog item, or None if not found.
 
-    Mock mode   — reads the catalog and fills in zero/null for the Phase 2 fields.
-    Telegraph mode — will call the real API (Phase 2).
+    Mock mode   — reads the catalog; fills zero / null for Phase 2 fields.
+    Telegraph mode — will call Telegraph and record a receipt (Phase 2).
     """
-    if MODE == "real":
-        # Phase 2 will POST to backend.telegraphprotocol.com here and capture
-        # the receipt_id and actual USD cost.
+    if PRICING_MODE == "telegraph":
+        # Phase 2: POST to backend.telegraphprotocol.com, save receipt in
+        # telegraph_requests table, return real price_inr + receipt_id.
         raise NotImplementedError("Phase 2")
 
-    # --- Mock mode -------------------------------------------------------
+    # --- Mock mode -----------------------------------------------------------
     item = find_item(item_id)
     if not item:
         return None
@@ -42,8 +43,8 @@ def price_item(item_id: str) -> dict | None:
         "name":         item["name"],
         "price_inr":    item["price_inr"],
         "price_source": "mock",
-        "receipt_id":   None,
-        "cost_usd":     0,
+        "receipt_id":   None,   # no Telegraph receipt in mock mode
+        "cost_usd":     0.0,
         "cached":       False,
     }
 

@@ -1,4 +1,4 @@
-# Roomora AI 🛋️
+﻿# Roomora AI 🛋️
 
 AI interior designer — upload a room photo, set a budget (INR), pick a style,
 get an AI-curated furniture plan with live Telegraph prices.
@@ -44,17 +44,10 @@ roomora-ai/
 
 ## Backend — PowerShell setup (Windows)
 
-Run all commands from the **`roomora-ai`** folder.
-
-### 1 · Create a virtual environment
+### 1 · Create a virtual environment (from `roomora-ai/`)
 
 ```powershell
 py -m venv .venv
-```
-
-### 2 · Activate it
-
-```powershell
 .venv\Scripts\Activate.ps1
 ```
 
@@ -63,38 +56,42 @@ py -m venv .venv
 > Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 > ```
 
-### 3 · Install dependencies
+### 2 · Install dependencies
 
 ```powershell
 pip install -r backend\requirements.txt
 ```
 
-### 4 · Create your `.env` file
+### 3 · Create your `.env` file
 
 ```powershell
-Copy-Item .env.example .env
+Copy-Item .env.example backend\.env
 ```
 
-Open `.env` and fill in your Telegraph and OpenRouter keys.  
+Open `backend\.env` and fill in your Telegraph and OpenRouter keys.  
 In Phase 1 (mock mode) the keys are not used — you can leave them as-is.
 
-### 5 · Start the backend server
+### 4 · Start the backend server
+
+**The server must be started from the `backend/` directory** so that
+`main.py` can import its sibling modules (`config`, `db`, `services`, etc.)
+directly without a package prefix.
 
 ```powershell
-uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
+cd backend
+uvicorn main:app --reload
 ```
 
-- API root: <http://127.0.0.1:8000/api/health>  
-- Interactive docs: <http://127.0.0.1:8000/docs>  
-- Stop with **Ctrl+C**.
+- API root: <http://127.0.0.1:8000/api/health>
+- Interactive docs: <http://127.0.0.1:8000/docs>
+- Stop with **Ctrl+C**, then `cd ..` to return to the project root.
 
-### 6 · Run the tests (no server needed)
+### 5 · Run the tests (no server needed)
 
 ```powershell
-pytest backend\tests\ -v
+cd backend
+pytest tests\ -v
 ```
-
-Expected: **35 passed**.
 
 ---
 
@@ -132,10 +129,11 @@ Stop with **Ctrl+C**.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/health` | Health check — returns `{status, app, mode}` |
+| `GET` | `/api/health` | Health check — returns `{status, app, vision_mode, pricing_mode}` |
 | `GET` | `/api/catalog` | List furniture items with INR prices |
 | `POST` | `/api/design` | Upload photo + budget + style → design plan |
-| `GET` | `/api/receipts` | List all past designs (newest first) |
+| `GET` | `/api/designs` | List all past design requests (newest first) |
+| `GET` | `/api/receipts` | List Telegraph purchase receipts from `telegraph_requests` (empty in mock mode) |
 
 ### POST `/api/design` — form fields
 
@@ -152,11 +150,13 @@ Stop with **Ctrl+C**.
 See [`.env.example`](.env.example) for the full list with comments.
 
 | Variable | Default | Purpose |
-|----------|---------|---------|
-| `ROOMORA_MODE` | `mock` | `mock` = Phase 1 placeholders, `real` = Phase 2 live APIs |
-| `TELEGRAPH_BEARER_KEY` | _(empty)_ | Telegraph API key — backend only, never expose |
-| `OPENROUTER_API_KEY` | _(empty)_ | OpenRouter key for vision model |
-| `TELEGRAPH_MAX_SPEND_USD` | `1.0` | Safety cap per Telegraph call |
+|----------|---------|---------| 
+| `VISION_MODE` | `mock` | `mock` = Phase 1 placeholder analysis, `openrouter` = Phase 3 real vision |
+| `PRICING_MODE` | `mock` | `mock` = catalog estimates, `telegraph` = Phase 2 live purchases |
+| `TELEGRAPH_API_KEY` | _(empty)_ | Telegraph API key — backend only, never expose |
+| `TELEGRAPH_MAX_SPEND_USD_PER_CALL` | `0.05` | Max USD per individual Telegraph call |
+| `TELEGRAPH_SESSION_CAP_USD` | `0.50` | Total session spend cap across all calls |
+| `OPENROUTER_API_KEY` | _(empty)_ | OpenRouter key for vision model (Phase 3) |
 | `MAX_UPLOAD_MB` | `8` | Maximum photo upload size |
 
 ---

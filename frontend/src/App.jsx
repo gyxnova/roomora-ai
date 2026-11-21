@@ -306,29 +306,29 @@ export default function App() {
 
         {showReceipts && !receiptsLoading && (
           receipts.length === 0 ? (
-            <p className="note">No designs yet. Submit a photo above to get started.</p>
+            <p className="note">No Telegraph purchases yet (mock mode).</p>
           ) : (
             <table className="plan-table">
               <thead>
                 <tr>
-                  <th>#</th>
-                  <th>Style</th>
-                  <th>Budget</th>
+                  <th>Request #</th>
+                  <th>Item</th>
                   <th>Status</th>
-                  <th>Created</th>
+                  <th>Cost (USD)</th>
+                  <th>Time</th>
                 </tr>
               </thead>
               <tbody>
                 {receipts.map((r) => (
                   <tr key={r.id}>
                     <td>{r.id}</td>
-                    <td style={{ textTransform: "capitalize" }}>{r.style}</td>
-                    <td>{inr(r.budget_inr)}</td>
+                    <td>{r.item_name ?? "—"}</td>
                     <td>
-                      <span className={`badge ${r.status === "done" ? "badge-live" : "badge-mock"}`}>
-                        {r.status}
+                      <span className={`badge ${r.status === "success" ? "badge-live" : "badge-mock"}`}>
+                        {r.status ?? "—"}
                       </span>
                     </td>
+                    <td>{r.cost_usd != null ? `$${r.cost_usd.toFixed(4)}` : "—"}</td>
                     <td className="text-muted">{r.created_at?.slice(0, 16) ?? "—"}</td>
                   </tr>
                 ))}

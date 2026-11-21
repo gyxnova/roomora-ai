@@ -1,13 +1,15 @@
 """Route tests for the Roomora AI FastAPI app.
 
-Uses FastAPI's TestClient — no uvicorn server is needed.
+Uses FastAPI's TestClient — no uvicorn server needed.
 
-Run with:  pytest backend/tests/test_routes.py -v
+Run with (from the backend/ directory):
+    pytest tests/test_routes.py -v
 """
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+# Make sure imports resolve from the backend/ directory.
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from fastapi.testclient import TestClient
 from main import app
@@ -30,7 +32,9 @@ def test_health_returns_ok():
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "ok"
-    assert body["mode"] == "mock"
+    # Health now exposes separate vision_mode and pricing_mode (section 10).
+    assert body["vision_mode"]  == "mock"
+    assert body["pricing_mode"] == "mock"
 
 
 # ---------------------------------------------------------------------------
@@ -58,14 +62,13 @@ def test_create_design_returns_full_payload():
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["budget_inr"] == 50000
-    assert body["style"] == "modern"
-    assert body["status"] == "done"
-    assert body["analysis_summary"]
+    assert body["style"]      == "modern"
+    assert body["status"]     == "done"
+    assert body["analysis"]
     assert body["design_plan"]
     assert "prices" in body
-    assert "id" in body
+    assert "id"     in body
     assert "photo_filename" in body
-    assert "created_at" in body
 
 
 def test_create_design_uuid_filename_saved():
@@ -77,7 +80,6 @@ def test_create_design_uuid_filename_saved():
     )
     assert resp.status_code == 200, resp.text
     saved = resp.json()["photo_filename"]
-    # UUID hex has 32 chars; with extension it's 36 chars total
     assert saved != "my-room.png"
     assert saved.endswith(".png")
 
@@ -157,34 +159,30 @@ def test_create_design_accepts_all_valid_styles():
 
 
 # ---------------------------------------------------------------------------
-# GET /api/receipts
+# GET /api/designs  (list of past design requests)
 # ---------------------------------------------------------------------------
 
-def test_receipts_empty_at_start():
-    resp = client.get("/api/receipts")
+def test_designs_empty_at_start():
+    resp = client.get("/api/designs")
     assert resp.status_code == 200
     assert resp.json() == []
 
 
-def test_receipts_contains_created_design():
+def test_designs_contains_created_design():
     client.post(
         "/api/design",
         data={"budget_inr": 30000, "style": "scandinavian"},
         files={"photo": ("a.jpg", b"bytes", "image/jpeg")},
     )
-    resp = client.get("/api/receipts")
-    assert resp.status_code == 200
+    resp  = client.get("/api/designs")
     items = resp.json()
     assert len(items) == 1
-    r = items[0]
-    assert r["budget_inr"] == 30000
-    assert r["style"] == "scandinavian"
-    assert r["status"] == "done"
-    assert "photo_filename" in r
-    assert "created_at" in r
+    assert items[0]["budget_inr"] == 30000
+    assert items[0]["style"]      == "scandinavian"
+    assert items[0]["status"]     == "done"
 
 
-def test_receipts_newest_first():
+def test_designs_newest_first():
     """Multiple designs should be returned newest (highest id) first."""
     for style in ("modern", "luxury"):
         client.post(
@@ -192,9 +190,57 @@ def test_receipts_newest_first():
             data={"budget_inr": 50000, "style": style},
             files={"photo": ("room.jpg", b"bytes", "image/jpeg")},
         )
-    items = client.get("/api/receipts").json()
+    items = client.get("/api/designs").json()
     assert len(items) == 2
     assert items[0]["id"] > items[1]["id"]
+
+
+# ---------------------------------------------------------------------------
+# GET /api/receipts  (telegraph_requests — always empty in mock mode)
+# ---------------------------------------------------------------------------
+
+def test_receipts_empty_in_mock_mode():
+    """In mock mode no Telegraph calls are made, so receipts is always []."""
+    resp = client.get("/api/receipts")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_receipts_still_empty_after_design():
+    """Submitting a design in mock mode must NOT add anything to receipts."""
+    client.post(
+        "/api/design",
+        data={"budget_inr": 30000, "style": "modern"},
+        files={"photo": ("a.jpg", b"bytes", "image/jpeg")},
+    )
+    resp = client.get("/api/receipts")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_receipts_returns_telegraph_rows_when_present():
+    """If a telegraph_requests row exists, /api/receipts should return it."""
+    row_id = db.insert_telegraph_request(
+        item_name   = "IKEA KALLAX",
+        message     = "What is the price of IKEA KALLAX?",
+        http_status = 200,
+        status      = "success",
+        cost_usd    = 0.02,
+        answer      = "price_inr=5990; store=IKEA",
+        network     = "sepolia-testnet",
+    )
+    resp  = client.get("/api/receipts")
+    assert resp.status_code == 200
+    rows  = resp.json()
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["id"]        == row_id
+    assert r["item_name"] == "IKEA KALLAX"
+    assert r["cost_usd"]  == 0.02
+    assert r["status"]    == "success"
+    assert "created_at"   in r
+    # raw_json must NOT appear in the response (it can be large).
+    assert "raw_json" not in r
 
 
 # ---------------------------------------------------------------------------

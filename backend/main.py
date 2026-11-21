@@ -2,42 +2,43 @@
 
 Routes (section 10 of the brief):
 
-    GET  /api/health     health check
+    GET  /api/health     health check — returns vision_mode and pricing_mode
     GET  /api/catalog    list furniture items (INR prices)
     POST /api/design     create a room design (multipart: photo, budget_inr, style)
-    GET  /api/receipts   list all past designs (newest first)
+    GET  /api/designs    list all past design requests (newest first)
+    GET  /api/receipts   list Telegraph purchase receipts from telegraph_requests
+                         (always an empty list in mock/Phase-1 mode — never designs)
 
 Validation:
     photo  — must be jpg / png / webp, under 8 MB
     budget — 5 000 to 5 000 000 INR
     style  — one of: minimalist, modern, japanese, scandinavian, luxury
+
+Run with (from the backend/ directory):
+    uvicorn main:app --reload
 """
-import io
 import os
 import uuid
-import shutil
+import json
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
 
 import config
 import db
-from db import SessionLocal, Design
 from services import designer, vision
-from data import catalog
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
-MAX_PHOTO_BYTES = 8 * 1024 * 1024          # 8 MB
-BUDGET_MIN = 5_000
-BUDGET_MAX = 5_000_000
-VALID_STYLES = {"minimalist", "modern", "japanese", "scandinavian", "luxury"}
+ALLOWED_EXTENSIONS    = {".jpg", ".jpeg", ".png", ".webp"}
+MAX_PHOTO_BYTES       = config.MAX_UPLOAD_MB * 1024 * 1024
+BUDGET_MIN            = 5_000
+BUDGET_MAX            = 5_000_000
+VALID_STYLES          = {"minimalist", "modern", "japanese", "scandinavian", "luxury"}
 
 
 # ---------------------------------------------------------------------------
@@ -46,6 +47,7 @@ VALID_STYLES = {"minimalist", "modern", "japanese", "scandinavian", "luxury"}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Create uploads dir relative to the working directory (backend/).
     os.makedirs(config.UPLOAD_DIR, exist_ok=True)
     db.init_db()
     yield
@@ -64,139 +66,141 @@ app.add_middleware(
 
 
 # ---------------------------------------------------------------------------
-# Dependency
-# ---------------------------------------------------------------------------
-
-def get_db():
-    """Yield a database session; always close it when the request finishes."""
-    session = SessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
-
-
-# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
 @app.get("/api/health")
 def health():
-    """Health check — returns app name and current mode (mock / real)."""
-    return {"status": "ok", "app": config.APP_NAME, "mode": config.MODE}
+    """Health check — returns current vision_mode and pricing_mode."""
+    return {
+        "status":       "ok",
+        "app":          config.APP_NAME,
+        "vision_mode":  config.VISION_MODE,
+        "pricing_mode": config.PRICING_MODE,
+    }
 
 
 @app.get("/api/catalog")
 def list_catalog():
-    """List all furniture items with INR prices."""
+    """List all furniture items in the catalog with INR prices."""
+    from data import catalog
     return {"items": catalog.list_items()}
 
 
 @app.post("/api/design")
 def create_design(
-    photo: UploadFile = File(...),
-    budget_inr: int = Form(...),
-    style: str = Form(...),
-    db_session: Session = Depends(get_db),
+    photo:      UploadFile = File(...),
+    budget_inr: int        = Form(...),
+    style:      str        = Form(...),
 ):
     """Create a new room design.
 
-    Validates inputs, saves the photo, runs the vision + designer pipeline,
-    persists the result, and returns the full design JSON.
+    Validates inputs, saves the photo, runs vision + designer pipeline,
+    persists the result to the designs table, and returns the full JSON.
     """
-    # --- Validate photo type -------------------------------------------
-    ext = os.path.splitext(photo.filename or "")[1].lower()
+    # --- Validate photo type -----------------------------------------------
+    ext          = os.path.splitext(photo.filename or "")[1].lower()
     content_type = (photo.content_type or "").lower()
     if content_type not in ALLOWED_CONTENT_TYPES and ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Invalid file type. Only JPEG, PNG, and WebP images are accepted."
-            ),
+            detail="Invalid file type. Only JPEG, PNG, and WebP images are accepted.",
         )
 
-    # --- Validate photo size (read into memory once) -------------------
+    # --- Validate photo size (read into memory once) -----------------------
     file_bytes = photo.file.read()
     if len(file_bytes) > MAX_PHOTO_BYTES:
         raise HTTPException(
             status_code=400,
-            detail=f"Photo is too large. Maximum allowed size is 8 MB.",
+            detail=f"Photo is too large. Maximum allowed size is {config.MAX_UPLOAD_MB} MB.",
         )
 
-    # --- Validate budget -----------------------------------------------
+    # --- Validate budget ---------------------------------------------------
     if not (BUDGET_MIN <= budget_inr <= BUDGET_MAX):
         raise HTTPException(
             status_code=422,
-            detail=(
-                f"budget_inr must be between {BUDGET_MIN:,} and {BUDGET_MAX:,} INR."
-            ),
+            detail=f"budget_inr must be between {BUDGET_MIN:,} and {BUDGET_MAX:,} INR.",
         )
 
-    # --- Validate style ------------------------------------------------
+    # --- Validate style ----------------------------------------------------
     style = style.strip().lower()
     if style not in VALID_STYLES:
         raise HTTPException(
             status_code=422,
-            detail=(
-                f"style must be one of: {', '.join(sorted(VALID_STYLES))}."
-            ),
+            detail=f"style must be one of: {', '.join(sorted(VALID_STYLES))}.",
         )
 
-    # --- Save photo to uploads/ ----------------------------------------
+    # --- Save photo to uploads/ --------------------------------------------
     os.makedirs(config.UPLOAD_DIR, exist_ok=True)
     unique_name = f"{uuid.uuid4().hex}{ext}"
-    file_path = os.path.join(config.UPLOAD_DIR, unique_name)
+    file_path   = os.path.join(config.UPLOAD_DIR, unique_name)
     with open(file_path, "wb") as f:
         f.write(file_bytes)
 
-    # --- Run the design pipeline ---------------------------------------
-    analysis_summary = vision.analyze_room(unique_name)
-    design_plan = designer.build_design_plan(budget_inr, style, analysis_summary)
-    prices = [
-        {"id": item["id"], "name": item["name"], "price_inr": item["price_inr"]}
+    # --- Run the design pipeline -------------------------------------------
+    analysis    = vision.analyze_room(unique_name)
+    design_plan = designer.build_design_plan(budget_inr, style, analysis)
+    prices      = [
+        {
+            "id":           item["id"],
+            "name":         item["name"],
+            "price_inr":    item["price_inr"],
+            "price_source": item.get("price_source", "mock"),
+            "receipt_id":   item.get("receipt_id"),
+        }
         for item in design_plan.get("items", [])
     ]
 
-    # --- Persist to database -------------------------------------------
-    row = Design(
-        photo_filename=unique_name,
-        budget_inr=budget_inr,
-        style=style,
-        analysis_summary=analysis_summary,
-        design_plan=str(design_plan),
-        prices=str(prices),
-        status="done",
+    # --- Persist to designs table ------------------------------------------
+    analysis_summary = analysis.get("note", str(analysis))
+    design_id = db.insert_design(
+        photo_filename   = unique_name,
+        budget_inr       = budget_inr,
+        style            = style,
+        analysis_summary = analysis_summary,
+        design_plan      = json.dumps(design_plan),
+        prices           = json.dumps(prices),
+        status           = "done",
     )
-    db_session.add(row)
-    db_session.commit()
-    db_session.refresh(row)
 
-    # --- Return full design JSON (section 5) ---------------------------
+    # --- Return full design JSON -------------------------------------------
     return {
-        "id": row.id,
-        "photo_filename": row.photo_filename,
-        "budget_inr": row.budget_inr,
-        "style": row.style,
+        "id":               design_id,
+        "photo_filename":   unique_name,
+        "budget_inr":       budget_inr,
+        "style":            style,
+        "analysis":         analysis,
         "analysis_summary": analysis_summary,
-        "design_plan": design_plan,
-        "prices": prices,
-        "status": row.status,
-        "created_at": str(row.created_at),
+        "design_plan":      design_plan,
+        "prices":           prices,
+        "status":           "done",
     }
 
 
+@app.get("/api/designs")
+def list_designs():
+    """List all past design requests, newest first."""
+    return db.list_designs()
+
+
 @app.get("/api/receipts")
-def list_receipts(db_session: Session = Depends(get_db)):
-    """List all past designs, newest first (the receipts / history page)."""
-    rows = db_session.query(Design).order_by(Design.id.desc()).all()
+def list_receipts():
+    """List Telegraph purchase receipts from telegraph_requests, newest first.
+
+    Returns an empty list in mock/Phase-1 mode (no Telegraph calls are made).
+    NEVER returns designs — that is /api/designs.
+    """
+    rows = db.list_telegraph_requests()
+    # Strip raw_json from the response (can be large; not needed by the UI).
     return [
         {
-            "id": r.id,
-            "photo_filename": r.photo_filename,
-            "budget_inr": r.budget_inr,
-            "style": r.style,
-            "status": r.status,
-            "created_at": str(r.created_at),
+            "id":          r["id"],
+            "created_at":  r["created_at"],
+            "item_name":   r["item_name"],
+            "status":      r["status"],
+            "cost_usd":    r["cost_usd"],
+            "job_id":      r["job_id"],
+            "network":     r["network"],
         }
         for r in rows
     ]

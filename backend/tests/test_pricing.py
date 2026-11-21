@@ -1,11 +1,12 @@
 """Unit tests for the pricing service.
 
-Run with:  pytest backend/tests/test_pricing.py -v
+Run with (from the backend/ directory):
+    pytest tests/test_pricing.py -v
 """
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import pytest
 from unittest.mock import patch
@@ -14,7 +15,7 @@ from services.pricing import price_item, price_items
 
 
 # ---------------------------------------------------------------------------
-# Mock mode (default)
+# Mock mode (default — PRICING_MODE=mock)
 # ---------------------------------------------------------------------------
 
 def test_price_item_returns_dict_for_known_id():
@@ -38,9 +39,9 @@ def test_price_item_has_all_section7_fields():
 def test_price_item_mock_field_values():
     result = price_item("lamp-1")
     assert result["price_source"] == "mock"
-    assert result["receipt_id"] is None
-    assert result["cost_usd"] == 0
-    assert result["cached"] is False
+    assert result["receipt_id"]   is None
+    assert result["cost_usd"]     == 0.0
+    assert result["cached"]       is False
 
 
 def test_price_items_skips_missing():
@@ -55,11 +56,11 @@ def test_price_items_empty_list():
 
 
 # ---------------------------------------------------------------------------
-# Telegraph mode — must raise NotImplementedError("Phase 2")
+# Telegraph mode — must still raise NotImplementedError("Phase 2")
 # ---------------------------------------------------------------------------
 
-def test_price_item_real_mode_raises_not_implemented():
-    """When MODE == 'real', price_item must raise NotImplementedError('Phase 2')."""
-    with patch("services.pricing.MODE", "real"):
+def test_price_item_telegraph_mode_raises_not_implemented():
+    """When PRICING_MODE == 'telegraph', price_item must raise NotImplementedError('Phase 2')."""
+    with patch("services.pricing.PRICING_MODE", "telegraph"):
         with pytest.raises(NotImplementedError, match="Phase 2"):
             price_item("sofa-1")
